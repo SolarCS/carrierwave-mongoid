@@ -31,6 +31,25 @@ module CarrierWave
           @grid_file = nil
         end
 
+        # Generally we will infer the database name from the model name and the
+        # name of the field the uploader is mounted as
+        #
+        # but it is possible to override the database name
+        #
+        # by defining a database_for_mounted_file method
+        #
+        # It's expected that whichever database is used, it will already exist
+        # in the application's configuration
+        def database_for_mounted_file
+          if @uploader.respond_to?(:database_for_mounted_file)
+            @uploader.database_for_mounted_file
+          else
+            # Note: when your host class is a subclass, it will use the subclasse's name
+            # if you want to group all of the subclasses together, implement the above method
+            @uploader.model.class.name.split("::").join.underscore + "_" + @uploader.mounted_as.to_s.tableize
+          end
+        end
+
         def url
           unless @uploader.grid_fs_access_url
             nil
@@ -40,11 +59,12 @@ module CarrierWave
         end
 
         def grid_file(&block)
-          @grid_file ||= grid[path]
+          options = { path: path, database: database_for_mounted_file }
+          @grid_file ||= grid[options]
         end
 
         def write(file)
-          grid[@uploader.store_path] = file
+          grid[path] = { file: file, database: database_for_mounted_file }
         ensure
           @grid_file = nil
         end
